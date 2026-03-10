@@ -8,7 +8,14 @@ A TypeScript Discord bot that acts as a transport layer for a private friend-gro
 
 ## Commands
 
-> To be added once project is scaffolded. At minimum, document: build, dev (run bot locally), and how to run a single test. All commands should be copy-paste ready.
+```bash
+npm run build      # Compile TypeScript → dist/
+npm run dev        # Run bot locally (tsx, no compile step)
+npm run lint       # Run ESLint
+npm run format     # Auto-format with Prettier
+```
+
+> Tests are not yet configured. A test runner will be added alongside the first plugin implementation.
 
 ## Architecture
 
@@ -64,3 +71,7 @@ Each plugin owns its own persistence. The bot core and built-in plugins use SQLi
 - **ORM:** Prisma
 - **Database:** SQLite (core/built-ins); external plugins choose their own
 - **Containers:** Docker + docker-compose
+
+**Environment:** Copy `.env.example` → `.env` and fill in `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID` before running.
+
+**Node version:** Managed via [mise](https://mise.jdx.dev). Run `mise install` once after cloning.

@@ -9,3 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial project design document
 - Architecture Decision Records for plugin architecture, Docker, TypeScript core, SQLite + Prisma, and discord.js
+- TypeScript project scaffold with discord.js v14, dotenv, ESLint, and Prettier
+- `src/` directory structure: `core/`, `plugins/`, `adapters/`, `types/`
+- npm scripts: `build`, `dev`, `lint`, `format`
+- `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID` placeholders
