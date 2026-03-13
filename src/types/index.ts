@@ -13,9 +13,9 @@ export interface CommandContext {
 }
 
 export interface PluginResponse {
-  content: string;       // Use "" for embed-only responses
+  content: string; // Use "" for embed-only responses
   embeds?: APIEmbed[];
-  ephemeral?: boolean;   // Core translates to MessageFlags.Ephemeral
+  ephemeral?: boolean; // Core translates to MessageFlags.Ephemeral
 }
 
 export interface InProcessAdapter {
