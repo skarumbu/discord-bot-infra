@@ -32,6 +32,6 @@ Each service (bot, database, plugin) runs as a Docker container. docker-compose 
 
 - Positive: Contributors only need a `Dockerfile` to add a new plugin service — no environment setup required
 - Positive: docker-compose naturally models the multi-service architecture (bot + db + N plugins)
-- Positive: Works transparently on macOS via Docker Desktop
-- Negative: Docker Desktop overhead on macOS compared to native Linux
+- Positive: Works on macOS via OrbStack (chosen runtime — fast, lightweight, native ARM64 performance)
+- Neutral: Docker Desktop is an alternative macOS runtime but carries more overhead; OrbStack is preferred for this project
 - Neutral: LXC was considered but is optimised for full OS isolation on dedicated Linux servers, not the application-container model used here

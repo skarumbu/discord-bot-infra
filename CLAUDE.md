@@ -37,7 +37,7 @@ Discord interaction
 
 **Built-in (TypeScript, in-process):** Create a directory under `src/plugins/`. The registry auto-discovers it on startup. Implement the `InProcessAdapter` interface.
 
-**External (any language):** *(Not yet implemented — HTTP/Subprocess adapters and `src/adapters/` are scaffolded but empty.)* Build the service to accept a `CommandContext` POST and return a `PluginResponse`. Add a `Dockerfile`. Register in `plugins.config.json`:
+**External (any language):** *(Not yet implemented — `src/adapters/` exists but is empty; `plugins.config.json` and `docker-compose.yml` don't exist yet.)* When implemented: build the service to accept a `CommandContext` POST and return a `PluginResponse`. Add a `Dockerfile`. Register in `plugins.config.json`:
 ```json
 { "name": "my-plugin", "adapter": "http", "baseUrl": "http://my-plugin:8080", "commands": ["my-plugin.command"] }
 ```
@@ -75,15 +75,26 @@ Each plugin owns its own persistence. The bot core and built-in plugins will use
 - **Test runner:** Vitest
 - **ORM:** Prisma
 - **Database:** SQLite (core/built-ins); external plugins choose their own
-- **Containers:** Docker + docker-compose
+- **Containers:** Docker (OrbStack on macOS). Same image for dev and prod — environment is the only difference:
+  ```bash
+  docker build -t discordbot:latest .
+  docker run --env-file .env.dev discordbot:latest   # dev bot
+  docker run --env-file .env.prod discordbot:latest  # prod bot
+  ```
 
-**Environment:** Copy `.env.example` → `.env` and fill in `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID` before running.
+**Environment:** Copy `.env.dev.example` → `.env.dev` (dev bot) and `.env.prod.example` → `.env.prod` (prod bot). Fill in `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID` for each.
 
 **Node version:** Managed via [mise](https://mise.jdx.dev). Run `mise install` once after cloning.
 
 ## Gotchas
 
+- **Entry point:** `src/core/index.ts` — boots the plugin registry, registers slash commands with Discord (guild-scoped, instant), then starts the Discord client.
+- **Slash command registration:** Automatic at startup via Discord REST API. No manual step needed when adding a plugin — just implement `slashCommandDefinitions` and restart.
 - **Import extensions:** All relative imports must use `.js` extensions (e.g. `from './router.js'`), even in `.ts` source files. Required by `"module": "Node16"`.
 - **Dynamic imports:** Must use `pathToFileURL(path).href` — raw filesystem paths throw in ESM (`"type": "module"`).
-- **Ephemeral replies:** Use `flags: MessageFlags.Ephemeral`, not `ephemeral: true` (deprecated in discord.js v14).
-- **Tests:** Live in `tests/` (excluded from `tsc`), run by Vitest. Mock `fetch` with `vi.stubGlobal('fetch', ...)`.
+- **Registry extension detection:** The registry infers whether to import `index.ts` or `index.js` from its own file's extension at runtime (`.ts` in dev via `tsx`, `.js` in prod from compiled output). Plugin entry files must match.
+- **Ephemeral replies:** In discord.js reply calls (bot core), use `flags: MessageFlags.Ephemeral` — `ephemeral: true` is deprecated in discord.js v14. Plugins still correctly return `ephemeral: true` in `PluginResponse`; the core translates it.
+- **Tests:** Live in `tests/core/` (`router.test.ts`, `registry.test.ts`) and `tests/plugins/weather/`. Excluded from `tsc`, run by Vitest. Mock `fetch` with `vi.stubGlobal('fetch', ...)`.
+- **Plugin export:** Plugins must use `export default pluginInstance`. The registry checks `mod.default ?? mod`, but default export is the convention.
+- **Registry crash:** If no plugins load successfully the registry throws and the bot exits. A malformed plugin logs a warning and is skipped; an empty `src/plugins/` crashes on startup.
+- **Weather tests:** 3 tests in `tests/plugins/weather/` currently fail (`result.ephemeral` is `undefined`). Pre-existing issue, unrelated to Docker.

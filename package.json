@@ -8,7 +8,9 @@
     "lint": "eslint src",
     "format": "prettier --write src",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "docker:dev": "docker build -t discordbot:latest . && docker run --env-file .env.dev discordbot:latest",
+    "docker:prod": "docker build -t discordbot:latest . && docker run --env-file .env.prod discordbot:latest"
   },
   "keywords": [],
   "author": "",
