@@ -18,8 +18,8 @@ log_retention_days = 90
 #   terraform apply -var='image=discordbotprodacr.azurecr.io/discord-bot:v1'
 
 env_vars = {
-  # Add non-sensitive bot config here, e.g.:
-  # LOG_LEVEL = "info"
+  DISCORD_CLIENT_ID = "1101612221966073908"
+  DISCORD_GUILD_ID  = "427309774669873152"
 }
 
 tags = {
