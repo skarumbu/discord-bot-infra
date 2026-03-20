@@ -1,115 +1,75 @@
-# DiscordBot
+# discord-bot-infra
 
-A TypeScript Discord bot built as a plugin routing shell for a private friend-group server. The bot core handles only Discord API communication — all features live in self-contained plugins.
+Terraform infrastructure for the Discord bot. Provisions and manages Azure resources for the production environment.
 
-## Architecture
+Bot source code lives in [`discord-bot-app`](https://github.com/skarumbu/discord-bot-app). Pushing to `main` there automatically builds the image, pushes it to ACR, and runs `terraform apply` — no manual deploy steps needed.
+
+## Resources
+
+- **Azure Container Registry** — stores Docker images built from `discord-bot-app`
+- **Azure Container App** — runs the bot container
+- **Log Analytics Workspace** — container logs
+
+## Structure
 
 ```
-Discord interaction
-  → CommandRouter (resolves plugin by command name)
-    → Adapter (InProcess / HTTP / Subprocess)
-      → Plugin
-        → PluginResponse
-          → Discord reply
+environments/
+  dev/    # dev bot (Basic ACR, smaller compute)
+  prod/   # prod bot (Standard ACR)
+modules/
+  container_registry/
+  container_app/
 ```
 
-The bot core never contains business logic. Every feature is a plugin that conforms to a transport-agnostic JSON contract:
+## First-Time Setup
 
-- **Input (`CommandContext`):** `{ command, args, context: { guildId, channelId, invokingUserId, invokingUserName } }`
-- **Output (`PluginResponse`):** `{ content, embeds?, ephemeral? }`
-
-Plugins never interact with Discord directly. discord.js is used as a thin API client only.
-
-## Plugins
-
-| Plugin | Type | Status |
-|--------|------|--------|
-| `weather` | Built-in (TypeScript) | Implemented |
-| `karma` | Built-in (TypeScript) | Planned |
-
-### `/weather <zipcode>`
-Returns current weather conditions for a US zip code via [wttr.in](https://wttr.in).
-
-## Setup
-
-**Prerequisites:** [Node.js](https://nodejs.org) (managed via [mise](https://mise.jdx.dev)), [Docker](https://www.docker.com)
+Before CI can deploy, infrastructure must exist. Run once manually:
 
 ```bash
-# Install Node.js version
-mise install
+# 1. Create Terraform state storage (if it doesn't exist)
+az group create -n tfstate-rg -l eastus
+az storage account create -n discordbottfstate -g tfstate-rg -l eastus --sku Standard_LRS
+az storage container create -n tfstate --account-name discordbottfstate
 
-# Install dependencies
-npm install
+# 2. Set required env vars
+export TF_VAR_subscription_id="<your-subscription-id>"
+export TF_VAR_secret_env_vars='{"DISCORD_TOKEN":"<your-prod-token>"}'
 
-# Configure environment
-cp .env.dev.example .env.dev    # dev bot
-cp .env.prod.example .env.prod  # prod bot
+# 3. Init and apply (deploys with placeholder image)
+cd environments/prod
+terraform init
+terraform apply
 ```
 
-Fill in `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, and `DISCORD_GUILD_ID` in each `.env` file.
+After this, push any commit to `discord-bot-app/main` — CI handles all subsequent deploys.
 
-## Development
+## Manual Apply
+
+For infrastructure-only changes (not image updates), apply directly:
 
 ```bash
-npm run dev        # Run bot locally (no compile step, uses tsx)
-npm run build      # Compile TypeScript → dist/
-npm run test       # Run unit tests
-npm run test:watch # Run tests in watch mode
-npm run lint       # Lint with ESLint
-npm run format     # Format with Prettier
+export TF_VAR_subscription_id="<your-subscription-id>"
+export TF_VAR_secret_env_vars='{"DISCORD_TOKEN":"<your-prod-token>"}'
+cd environments/prod
+terraform apply
 ```
 
-## Docker
-
-Same image for dev and prod — environment is the only difference:
+To pin a specific image without pushing app code:
 
 ```bash
-docker build -t discordbot:latest .
-docker run --env-file .env.dev discordbot:latest   # dev bot
-docker run --env-file .env.prod discordbot:latest  # prod bot
+terraform apply -var='image=discordbotprodacr.azurecr.io/discord-bot:sha-abc1234'
 ```
 
-Or use the npm shortcuts:
+## CI/CD GitHub Secrets
 
-```bash
-npm run docker:dev
-npm run docker:prod
-```
+The following secrets must be set in `discord-bot-app` for the deploy workflow to function:
 
-## Adding a Plugin
+| Secret | Description |
+|--------|-------------|
+| `AZURE_CLIENT_ID` | App registration client ID (OIDC) |
+| `AZURE_TENANT_ID` | Azure tenant ID |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
+| `TF_VAR_SECRET_ENV_VARS` | `{"DISCORD_TOKEN":"..."}` |
+| `INFRA_REPO_PAT` | Fine-grained PAT with read access to this repo |
 
-**Built-in (TypeScript):** Create a directory under `src/plugins/` and implement the `InProcessAdapter` interface. The registry auto-discovers it on startup — no registration step needed.
-
-```typescript
-import type { InProcessAdapter, CommandContext, PluginResponse } from '../../types/index.js';
-
-const myPlugin: InProcessAdapter = {
-  commands: ['my-command'],
-  slashCommandDefinitions: [ /* SlashCommandBuilder definitions */ ],
-  async execute(ctx: CommandContext): Promise<PluginResponse> {
-    return { content: 'Hello!' };
-  },
-};
-
-export default myPlugin;
-```
-
-**External (any language):** *(Not yet implemented.)* Build a service that accepts a `CommandContext` POST and returns a `PluginResponse`. Register it in `plugins.config.json` with its adapter type and connection info.
-
-## Stack
-
-- **Runtime:** Node.js + TypeScript (`"module": "Node16"`)
-- **Discord library:** discord.js v14
-- **Test runner:** Vitest
-- **ORM:** Prisma *(planned — will be added with the `karma` plugin)*
-- **Database:** SQLite (core/built-ins)
-- **Containers:** Docker
-
-## Decisions
-
-Architectural decisions are recorded as ADRs in [`docs/decisions/`](docs/decisions/). Notable decisions:
-
-- [0001 — Plugin Architecture](docs/decisions/0001-plugin-architecture.md)
-- [0003 — TypeScript Core](docs/decisions/0003-typescript-core.md)
-- [0004 — SQLite + Prisma](docs/decisions/0004-sqlite-prisma.md)
-- [0005 — discord.js](docs/decisions/0005-discordjs.md)
+The app registration needs: `AcrPush` on the ACR, `Contributor` on the prod resource group, and `Storage Blob Data Contributor` on the `discordbottfstate` storage account.

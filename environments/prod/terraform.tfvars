@@ -14,8 +14,9 @@ min_replicas       = 1
 max_replicas       = 1
 log_retention_days = 90
 
-# image defaults to placeholder; override after first ACR push:
-#   terraform apply -var='image=discordbotprodacr.azurecr.io/discord-bot:v1'
+# image is managed by CI (discord-bot-app/.github/workflows/deploy.yml).
+# After the first manual apply (placeholder image), CI keeps this up to date automatically.
+# To pin manually: terraform apply -var='image=discordbotprodacr.azurecr.io/discord-bot:sha-<commit>'
 
 env_vars = {
   DISCORD_CLIENT_ID = "1101612221966073908"
