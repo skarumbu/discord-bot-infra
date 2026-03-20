@@ -1,0 +1,74 @@
+name: Terraform
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  terraform:
+    name: Terraform ${{ github.event_name == 'pull_request' && 'Plan' || 'Apply' }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # required for OIDC login to Azure
+      contents: read
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: environments/prod
+        run: terraform init
+
+      # Read the currently running image so terraform apply doesn't reset it to the
+      # placeholder default. Falls back to empty string on first deploy (no app yet).
+      - name: Resolve current image
+        id: image
+        run: |
+          CURRENT_IMAGE=$(az containerapp show \
+            --name discord-bot-prod \
+            --resource-group discordbotprod-rg \
+            --query "properties.template.containers[0].image" \
+            --output tsv 2>/dev/null || echo "")
+          echo "tag=${CURRENT_IMAGE}" >> $GITHUB_OUTPUT
+
+      - name: Terraform plan
+        working-directory: environments/prod
+        env:
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_secret_env_vars: ${{ secrets.TF_VAR_SECRET_ENV_VARS }}
+        run: |
+          if [ -n "${{ steps.image.outputs.tag }}" ]; then
+            terraform plan -var="image=${{ steps.image.outputs.tag }}"
+          else
+            terraform plan
+          fi
+
+      - name: Terraform apply
+        if: github.event_name == 'push'
+        working-directory: environments/prod
+        env:
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_secret_env_vars: ${{ secrets.TF_VAR_SECRET_ENV_VARS }}
+        run: |
+          if [ -n "${{ steps.image.outputs.tag }}" ]; then
+            terraform apply -auto-approve -var="image=${{ steps.image.outputs.tag }}"
+          else
+            terraform apply -auto-approve
+          fi
