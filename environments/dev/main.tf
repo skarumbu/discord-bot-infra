@@ -31,6 +31,15 @@ module "container_registry" {
   tags                = var.tags
 }
 
+module "storage_account" {
+  source = "../../modules/storage_account"
+
+  resource_group_name = azurerm_resource_group.main.name
+  location            = var.location
+  name_prefix         = var.name_prefix
+  tags                = var.tags
+}
+
 # Swap this source line for an AWS/GCP equivalent without changing the interface
 module "container_app" {
   source = "../../modules/container_app"
@@ -48,7 +57,9 @@ module "container_app" {
   min_replicas            = var.min_replicas
   max_replicas            = var.max_replicas
   env_vars                = var.env_vars
-  secret_env_vars         = var.secret_env_vars
+  secret_env_vars         = merge(var.secret_env_vars, {
+    KARMA_STORAGE_CONNECTION_STRING = module.storage_account.primary_connection_string
+  })
   log_retention_days      = var.log_retention_days
   tags                    = var.tags
 }
