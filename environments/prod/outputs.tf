@@ -23,6 +23,11 @@ output "container_app_id" {
   description = "Container App resource ID"
 }
 
+output "feature_ideator_job_name" {
+  value       = module.feature_ideator_job.job_name
+  description = "Name of the Feature Ideator Container App Job"
+}
+
 output "first_deploy_sequence" {
   value = <<-EOT
     First-deploy steps:

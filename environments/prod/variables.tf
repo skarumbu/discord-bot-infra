@@ -77,3 +77,16 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "jobs_image" {
+  type        = string
+  description = "Container image for the discord-bot-jobs package. Defaults to a placeholder; updated by the jobs CI pipeline."
+  default     = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+}
+
+variable "jobs_secret_env_vars" {
+  type      = map(string)
+  sensitive = true
+  description = "Secrets injected into the Feature Ideator job (ANTHROPIC_API_KEY, DISCORD_BOT_TOKEN, GITHUB_PAT). Pass via TF_VAR_jobs_secret_env_vars."
+  default   = {}
+}

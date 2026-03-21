@@ -63,3 +63,26 @@ module "container_app" {
   log_retention_days      = var.log_retention_days
   tags                    = var.tags
 }
+
+module "feature_ideator_job" {
+  source = "../../modules/container_app_job"
+
+  resource_group_name          = azurerm_resource_group.main.name
+  location                     = var.location
+  name_prefix                  = var.name_prefix
+  job_name                     = "feature-ideator"
+  image                        = var.jobs_image
+  container_app_environment_id = module.container_app.container_app_environment_id
+  pull_identity_id             = module.container_registry.pull_identity_id
+  registry_login_server        = module.container_registry.login_server
+  cron_expression              = "0 9 * * 1"
+  cpu                          = 0.5
+  memory                       = "1Gi"
+  env_vars = {
+    DISCORD_GUILD_ID = "427309774669873152"
+    DAYS_BACK        = "7"
+    GITHUB_REPO      = "skarumbu/discord-bot-app"
+  }
+  secret_env_vars = var.jobs_secret_env_vars
+  tags            = var.tags
+}
